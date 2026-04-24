@@ -48,9 +48,16 @@
   let filterMulaiObat = ""; let filterSelesaiObat = "";
   let dataRekapObat = []; let totalSemuaObat = 0;
 
+  // 🔥 PERUBAHAN: State Dropdown untuk Modal Edit 🔥
   let showModalEdit = false; let editRow = ""; let editNama = "";
   let editRM = ""; let editTerapi = ""; let editObat = ""; let editJumlah = "";
-  let isSavingEdit = false;
+  let isSavingEdit = false; let showDropdownEdit = false; 
+
+  $: filteredObatEdit = listObatDataAll.filter(o => {
+    if (!o) return false;
+    if (!editObat) return true;
+    return o.toLowerCase().includes(editObat.toLowerCase());
+  });
 
   let showModalTambah = false; let addObatRow = ""; let addObatNama = "";
   let addObatRM = ""; let addObatInput = ""; let addObatJumlah = 1;
@@ -237,7 +244,6 @@
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF('p', 'mm', 'a4'); 
 
-      // 🔥 WHITE-LABELING: Kop Surat Resmi PDF 🔥
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
       doc.text("SISTEM INFORMASI SATSET - VERSI DEMONSTRASI", 105, 15, { align: "center" });
@@ -332,7 +338,10 @@
     const dateObj = new Date(); const dd = String(dateObj.getDate()).padStart(2, '0');
     const mm = String(dateObj.getMonth() + 1).padStart(2, '0'); const yyyy = dateObj.getFullYear();
     const tglStr = `${dd}/${mm}/${yyyy}`;
-    let shiftIcon = "☀️"; if (tim.s.toUpperCase().includes("MALAM") || tim.s.toUpperCase().includes("SORE")) shiftIcon = "🌙";
+    
+    let shiftIcon = "☀️"; 
+    if (tim.s.toUpperCase().includes("SORE")) shiftIcon = "🌅";
+    if (tim.s.toUpperCase().includes("MALAM")) shiftIcon = "🌙";
 
     const listUGD = (pasienList || []).filter(p => p.ruangan === "UGD");
     const listKABER = (pasienList || []).filter(p => p.ruangan === "KABER");
@@ -357,7 +366,6 @@
     let pasienKendalaArr = (pasienList || []).filter(p => p.kendala && p.kendala.trim() !== "").map(p => `• [${p.nama}]: ${p.kendala}`);
     let finalKendala = pasienKendalaArr.length > 0 ? pasienKendalaArr.join("\n") : "- Nihil -";
 
-    // 🔥 WHITE-LABELING: Kop Laporan WA 🔥
     let txt = `🏥 *LAPORAN JAGA KLINIK DEMO SATSET*\n📅 ${tglStr} | ${shiftIcon} *Shift: ${tim.s} | Dr: ${tim.dr || '-'} | P: ${tim.p || '-'} | B: ${tim.b || '-'}*\n━━━━━━━━━━━━━━━━━━━━\n\n`;
     txt += `♿ *UNIT GAWAT DARURAT (UGD)*\n${renderPasienList(listUGD)}━━━━━━━━━━━━━━━━━━━━\n\n`;
     txt += `🌸 *KAMAR BERSALIN (KABER)*\n${renderPasienList(listKABER)}━━━━━━━━━━━━━━━━━━━━\n`;
@@ -376,7 +384,6 @@
     if (confirm("Hapus data ini secara permanen?")) { try { await supabase.from('laporan_pasien').delete().eq('id', row); muatDataDanLaporan(); } catch (e) { alert("Kesalahan server."); } }
   }
 
-  // 🔥 MISI SENYAP WA: Cegah WA terbuka otomatis di versi Demo 🔥
   function kirimWA() { 
     console.log("SIMULASI DEMO WA:\n", txtLaporan);
     alert("Ini adalah versi Demo. Teks Laporan berhasil digenerate di layar (bisa Anda Copy secara manual), namun fitur direct link ke WhatsApp dinonaktifkan untuk menghindari pengiriman pesan tidak sengaja."); 
@@ -387,13 +394,16 @@
   // =====================================
   function bukaModalEdit(it) {
     editRow = it.row; editNama = (it.nama !== "-" ? it.nama : ""); editRM = (it.rm !== "-" ? it.rm : ""); editTerapi = (it.terapi !== "-" ? it.terapi : "");
-    editObat = (it.rawItems && it.rawItems.length > 0 && it.rawItems[0].obat !== "-" ? it.rawItems[0].obat : ""); editJumlah = (it.rawItems && it.rawItems.length > 0 && it.rawItems[0].jumlah !== 0 ? it.rawItems[0].jumlah : ""); showModalEdit = true;
+    editObat = (it.rawItems && it.rawItems.length > 0 && it.rawItems[0].obat !== "-" ? it.rawItems[0].obat : ""); editJumlah = (it.rawItems && it.rawItems.length > 0 && it.rawItems[0].jumlah !== 0 ? it.rawItems[0].jumlah : ""); showModalEdit = true; showDropdownEdit = false;
   }
 
   async function simpanEditJaga() {
     isSavingEdit = true;
     try {
-      const newItems = [{ obat: editObat.toUpperCase(), jumlah: editJumlah || 0, sumber: "EDIT", status: "MANUAL" }];
+      // 🔥 Pastikan jika input berupa teks manual, ubah jadi Uppercase
+      const finalEditObat = editObat.trim().toUpperCase();
+      const newItems = [{ obat: finalEditObat, jumlah: editJumlah || 0, sumber: "EDIT", status: "MANUAL" }];
+      
       await supabase.from('laporan_pasien').update({ nama: editNama.toUpperCase(), rm: editRM, terapi: editTerapi, items: newItems }).eq('id', editRow);
       showModalEdit = false; muatDataDanLaporan();
     } catch(e) { alert("Error jaringan."); } finally { isSavingEdit = false; }
@@ -488,7 +498,14 @@
         <div class="jaga-card">
           <h2 class="jaga-section-title">Pengaturan Tim Jaga</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><span class="jaga-label" style="margin-top:0;">Shift Operasional</span><select bind:value={nakesForm.s} class="jaga-input"><option value="PAGI">Shift Pagi (☀️)</option><option value="SORE-MALAM">Shift Sore - Malam (🌙)</option></select></div>
+            <div>
+              <span class="jaga-label" style="margin-top:0;">Shift Operasional</span>
+              <select bind:value={nakesForm.s} class="jaga-input">
+                <option value="PAGI">Shift Pagi (☀️)</option>
+                <option value="SORE">Shift Sore (🌅)</option>
+                <option value="MALAM">Shift Malam (🌙)</option>
+              </select>
+            </div>
             <div><span class="jaga-label" style="margin-top:0;">Dokter Penanggung Jawab</span><input type="text" bind:value={nakesForm.dr} class="jaga-input" placeholder="dr. Nama Lengkap"></div>
           </div>
           <span class="jaga-label">Perawat Jaga (P1, P2, P3)</span>
@@ -738,7 +755,27 @@
         <div><label class="font-bold block mb-1">Nama Pasien</label><input type="text" bind:value={editNama} class="jaga-input uppercase"></div>
         <div><label class="font-bold block mb-1">No RM</label><input type="text" bind:value={editRM} class="jaga-input"></div>
         <div class="grid grid-cols-3 gap-4">
-          <div class="col-span-2"><label class="font-bold block mb-1">Nama Obat (Utama)</label><input type="text" bind:value={editObat} class="jaga-input uppercase"></div>
+          <div class="col-span-2 relative">
+            <label class="font-bold block mb-1">Nama Obat (Utama)</label>
+            <input type="text" bind:value={editObat} 
+                   on:focus={() => showDropdownEdit = true} 
+                   on:click={() => showDropdownEdit = true} 
+                   on:input={() => showDropdownEdit = true} 
+                   on:blur={() => setTimeout(() => showDropdownEdit = false, 300)} 
+                   autocomplete="off" 
+                   class="jaga-input uppercase" placeholder="Ketik...">
+            {#if showDropdownEdit}
+              {#if filteredObatEdit.length > 0}
+                <ul class="absolute z-[9999] w-full mt-1 bg-white border border-gray-300 shadow-xl max-h-40 overflow-y-auto rounded-md">
+                  {#each filteredObatEdit as o}
+                    <li on:mousedown|preventDefault={() => { editObat = o; showDropdownEdit = false; }} class="px-4 py-2 hover:bg-[#a435f0] hover:text-white cursor-pointer text-sm font-bold border-b border-gray-100 transition-colors">{o}</li>
+                  {/each}
+                </ul>
+              {:else}
+                <ul class="absolute z-[9999] w-full mt-1 bg-white border border-gray-300 shadow-xl rounded-md p-3"><li class="text-xs text-gray-500 italic text-center">Data obat tidak ditemukan...</li></ul>
+              {/if}
+            {/if}
+          </div>
           <div><label class="font-bold block mb-1">Jumlah</label><input type="number" bind:value={editJumlah} class="jaga-input text-center"></div>
         </div>
         <div><label class="font-bold block mb-1">Terapi / Tindakan</label><textarea bind:value={editTerapi} rows="3" class="jaga-input"></textarea></div>

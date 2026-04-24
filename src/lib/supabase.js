@@ -1,5 +1,4 @@
-import { createClient } from '@supabase/supabase-client'
-
+import { createClient } from '@supabase/supabase-js';
 // ==========================================
 // KUNCI KHUSUS DATABASE DEMO
 // AMAN 100% DARI DATABASE ASLI PONCOKUSUMO

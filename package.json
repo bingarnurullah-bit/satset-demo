@@ -17,7 +17,7 @@
     "vite": "^6.0.0"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.103.0",
+    "@supabase/supabase-js": "^2.104.1",
     "docx": "^9.6.1",
     "file-saver": "^2.0.5"
   }
