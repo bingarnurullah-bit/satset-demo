@@ -52,13 +52,51 @@
   async function logout() {
     await supabase.auth.signOut();
   }
+
+  // ==========================================
+  // FITUR RAHASIA: RESET DEMO (12x TAP)
+  // ==========================================
+  let logoClickCount = 0;
+  let logoClickTimer;
+
+  async function handleLogoClick() {
+    switchView('dashboard'); // Tetap jalankan fungsi aslinya (kembali ke beranda)
+    
+    logoClickCount++;
+    clearTimeout(logoClickTimer);
+    logoClickTimer = setTimeout(() => { logoClickCount = 0; }, 7000); 
+
+    if (logoClickCount === 12) {
+      logoClickCount = 0;
+      await eksekusiResetDemo();
+    }
+  }
+
+  async function eksekusiResetDemo() {
+    const konfirmasi = confirm("⚠️ PROTOKOL RAHASIA DIAKTIFKAN ⚠️\n\nAnda mengetuk logo 12 kali. Yakin ingin MENGHAPUS SEMUA DATA PASIEN, SBAR, & STELING?");
+    if (!konfirmasi) return;
+
+    try {
+      await Promise.all([
+        supabase.from('laporan_pasien').delete().neq('id', 0),
+        supabase.from('riwayat_sbar').delete().neq('id', 0),
+        supabase.from('kendala_shift').delete().neq('id', 0),
+        supabase.from('log_steling_obat').delete().neq('id', 0)
+      ]);
+      alert("✅ RESET BERHASIL! Semua data demo telah dibersihkan.");
+      window.location.reload(); 
+    } catch (error) {
+      alert("❌ Gagal mereset data: " + error.message);
+    }
+  }
+
 </script>
 
 {#if !user}
   <Login />
 {:else}
   <header class="h-20 flex items-center px-6 lg:px-12 border-b border-gray-200 sticky top-0 bg-white z-50 shadow-sm no-print">
-      <div on:click={() => switchView('dashboard')} class="flex items-center mr-8 cursor-pointer group">
+<div on:click={handleLogoClick} class="flex items-center mr-8 cursor-pointer group select-none">
           <div class="w-10 h-10 bg-udemy-black text-white rounded-lg flex items-center justify-center mr-3 group-hover:bg-udemy-purple transition-colors">
               <i data-lucide="zap" class="w-6 h-6 fill-current"></i>
           </div>
